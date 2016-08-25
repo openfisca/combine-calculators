@@ -12,11 +12,11 @@ class CerfaPopulationSimulator():
             self.possible_situations = [('M', 12002841), ('D', 5510809), ('O', 983754), ('C', 14934477), ('V', 3997578)]
             self.children_per_family = [(1, 46), (2, 38.5), (3, 12.5), (4, 2), (5, 1)]
             self.families = 9321480
-            self.salaire_imposable[21820704, 503723963299]
+            self.salaire_imposable = [21820704, 503723963299]
 
-        self.self.total_declarations = float(sum(w for c, w in self.possible_situations))
+        self.total_declarations = float(sum(w for c, w in self.possible_situations))
         self.avg_salaire_imposable = self.salaire_imposable[1] / self.salaire_imposable[0]
-        self.percent_salaire_imposable_not_0 = self.salaire_imposable[0] / self.self.total_declarations
+        self.percent_salaire_imposable_not_0 = self.salaire_imposable[0] / self.total_declarations
 
     def weighted_choice(self, choices):
        total = sum(w for c, w in choices)
@@ -107,6 +107,7 @@ class CerfaPopulationSimulator():
 
     def generate_test_cases(self, nb_test):
         test_cases = []
+        print 'Generating test cases:'
         for test in range(0, nb_test):
             test_case = self.generate_random_cerfa()
             test_case['year'] = 2014
