@@ -51,8 +51,7 @@ class CerfaPopulationSimulator():
         # if enfants > 0:
         #     cerfa['F'] = enfants
 
-        # The parameters of the gaussian are obtained by running the function find_gaussian_parameters once
-        cerfa['1AJ'] = self.simulate_one_gaussian(mu=21589, sigma=12606, th=0.612)
+        cerfa['1AJ'] = int(self.simulate_one_gaussian(mu=21589, sigma=12606, th=0.612))
 
         return cerfa
 

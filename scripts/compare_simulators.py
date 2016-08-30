@@ -18,6 +18,7 @@ from lxml import etree
 import openfisca_france, random, operator, time, requests
 import argparse
 import sys
+import json
 
 from m_compute import m_compute_from_aliases
 from population_simulator import CerfaPopulationSimulator
@@ -107,15 +108,16 @@ class OpenfiscaSimulator(TaxbenefitSimulater):
         # trace_explorer.print_trace(traceon, 2)
         # trace_explorer.save_trace_as_json(traceon, 2)
 
-        irpp = -simulation.calculate('irpp', '2014')[0]
-        credits_impot = simulation.calculate('credits_impot', '2014')[0]
-        salaire_imposable = simulation.calculate('salaire_imposable', '2014')[0]
-        taux_moyen_imposition = simulation.calculate('taux_moyen_imposition', '2014')[0]
-        tot_impot = simulation.calculate('tot_impot', '2014')[0]
+        # Converting to float because OpenFisca is returning some numpy
+        irpp = float(-simulation.calculate('irpp', '2014')[0])
+        credits_impot = float(simulation.calculate('credits_impot', '2014')[0])
+        salaire_imposable = float(simulation.calculate('salaire_imposable', '2014')[0])
+        taux_moyen_imposition = float(simulation.calculate('taux_moyen_imposition', '2014')[0])
+        tot_impot = float(simulation.calculate('tot_impot', '2014')[0])
 
         # Now that we have the 1AJ, we don't need the salaire_brut anymore
         return {'irpp': irpp, 'credits_impot': credits_impot, 'salaire_imposable': salaire_imposable,
-                'taux_moyen_imposition':taux_moyen_imposition, 'tot_impot': tot_impot}
+                'taux_moyen_imposition': taux_moyen_imposition, 'tot_impot': tot_impot}
 
 class MDescriptions():
     """
@@ -150,7 +152,7 @@ class MSimulator(TaxbenefitSimulater):
             Calls the M code and translate the name of the variable to a human readable name
         """
         result = m_compute_from_aliases(test)
-        return {self._m_descriptions.get_description(variable): result[variable] for variable in result}
+        return {variable: result[variable] for variable in result}
 
 
 class OnlineTaxSimulator(TaxbenefitSimulater):
@@ -197,7 +199,7 @@ class OnlineTaxSimulator(TaxbenefitSimulater):
                     break
                 table = tr.getparent()
                 tr = table[table.index(tr) - 1]
-            result[self._m_descriptions.get_description(element_name)] = float(element.get('value').strip())
+            result[element_name] = float(element.get('value').strip())
         return result
 
 class CalculatorComparator():
@@ -327,25 +329,45 @@ class CalculatorComparator():
             summed_results[key] = summed_results[key] / len(results)
         return summed_results
 
-    def compute_correlations_of_m_online(self, test_cases, only_impot=True):
+    def save_as_json(self, name, object):
+        with open('../results/' + name, "w") as outfile:
+            json.dump(object, outfile)
+
+    def load_from_json(self, file):
+        with open( '../results/' + file, 'r') as f:
+            return json.load(f)
+
+    def compute_correlations_of_m_online(self, test_cases, only_impot=True, save=None, load=None):
         m_descriptions = MDescriptions()
-        results_simulator_1 = self.simulate_of(test_cases)
-        results_simulator_2 = self.simulate_m(test_cases, m_descriptions)
-        results_simulator_3 = self.simulate_online(test_cases, m_descriptions)
+
+        if load:
+            results_openfisca = self.load_from_json(load + '-openfisca.json')
+            results_m = self.load_from_json(load + '-m.json')
+            results_online = self.load_from_json(load + '-online.json')
+        else:
+            results_openfisca = self.simulate_of(test_cases)
+            results_m = self.simulate_m(test_cases, m_descriptions)
+            results_online = self.simulate_online(test_cases, m_descriptions)
+
+        if save:
+            self.save_as_json(save + '-openfisca.json', results_openfisca)
+            self.save_as_json(save + '-m.json', results_m)
+            self.save_as_json(save + '-online.json', results_online)
+
 
         print ('\n\n ONLINE - M \n')
-        correlations, total_amounts = self.compute_correlations(results_simulator_3, results_simulator_2)
-        self.print_results(correlations, total_amounts, len(results_simulator_1), results_simulator_3, results_simulator_2, only_impot)
+        correlations, total_amounts = self.compute_correlations(results_online, results_m)
+        self.print_results(correlations, total_amounts, len(results_openfisca), results_online, results_m, only_impot)
 
         print ('\n\n OF - M \n')
-        correlations, total_amounts = self.compute_correlations(results_simulator_1, results_simulator_2)
-        self.print_results(correlations, total_amounts, len(results_simulator_1), results_simulator_1, results_simulator_2, only_impot)
+        correlations, total_amounts = self.compute_correlations(results_openfisca, results_m)
+        self.print_results(correlations, total_amounts, len(results_openfisca), results_openfisca, results_m, only_impot)
 
         print ('\n\n OF - ONLINE \n')
-        correlations, total_amounts = self.compute_correlations(results_simulator_1, results_simulator_3)
-        self.print_results(correlations, total_amounts, len(results_simulator_1), results_simulator_1, results_simulator_3, only_impot)
+        correlations, total_amounts = self.compute_correlations(results_openfisca, results_online)
+        self.print_results(correlations, total_amounts, len(results_openfisca), results_openfisca, results_online, only_impot)
 
-        return results_simulator_1, results_simulator_2, results_simulator_3
+        return results_openfisca, results_m, results_online
 
     def openfisca_vs_impotsgouv(self, test_cases):
         m_descriptions = MDescriptions()
@@ -383,13 +405,15 @@ def main():
     global parser
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tests', default='10', type=int, help='The number of tests')
-    parser.add_argument('--basic', default=True, type=bool, help='If we only compute the total of tax')
+    parser.add_argument('--ir', default=False, type=bool, help='If we only compute the impot sur le revenu')
+    parser.add_argument('--save', default=None, type=str, help='Saves the result in a json file')
+    parser.add_argument('--load', default=None, type=str, help='Loads from a json file')
 
     args = parser.parse_args()
 
     comparator = CalculatorComparator()
     test_cases = CerfaPopulationSimulator().generate_test_cases(args.tests)
-    comparator.compare_all(test_cases, only_impot=args.basic)
+    comparator.compute_correlations_of_m_online(test_cases, only_impot=args.ir, save=args.save, load=args.load)
 
     return 0
 
