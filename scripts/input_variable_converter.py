@@ -6,9 +6,6 @@
 
 import openfisca_france
 import json
-from openfisca_trace_explorer import OpenfiscaTraceExplorer
-from m_compute import m_compute_from_aliases
-
 
 # Example of usage:
 
@@ -67,9 +64,52 @@ from m_compute import m_compute_from_aliases
 #     # '0CF'
 # }
 
-
 class MissingFieldException(Exception):
     pass
+
+class CerfaMConverter():
+    """
+        This class enables to convert inputs from CERFA to inputs for M
+    """
+    def __init__(self, verbose=True):
+        self._verbose = verbose
+        with open('../light_ast/input_variables.json', 'r') as f:
+            input_variables = json.load(f)
+        self._alias2name = {i['alias']: i['name'] for i in input_variables}
+        with open('../light_ast/inputs_light.json', 'r') as f:
+            self._inputs_light = json.load(f)
+
+    def convert_cerfa_to_m(self, inputs, period=2014):
+        assert (period == 2014)
+        new_inputs = dict(inputs)
+
+        if 'year' in new_inputs:
+            assert (new_inputs['year'] == 2014)
+            del new_inputs['year']
+
+        if 'M' in new_inputs:
+            new_inputs['0AM'] = new_inputs['M']
+        elif 'D' in new_inputs:
+            new_inputs['0AD'] = new_inputs['D']
+        elif 'O' in new_inputs:
+            new_inputs['0AO'] = new_inputs['O']
+        elif 'C' in new_inputs:
+            new_inputs['0AC'] = new_inputs['C']
+        elif 'V' in new_inputs:
+            new_inputs['0AV'] = new_inputs['V']
+        else:
+            assert False, 'No situation was filled, it should have either M, D, O, C, V set to 1'
+
+        input_values = {self._alias2name[alias]: value for alias, value in new_inputs.items()}
+
+        input_values_complete = {}
+        for name in self._inputs_light:
+            if name in input_values:
+                input_values_complete[name] = input_values[name]
+            else:
+                input_values_complete[name] = 0.
+        return input_values_complete
+
 
 class CerfaOpenFiscaConverter():
     """
@@ -119,8 +159,7 @@ class CerfaOpenFiscaConverter():
                 print 'INFO: converting birthdate from "' + str(inputs[cerfa]) + '" to "' + person_output['date_naissance'] + '"'
 
 
-
-    def convert_cerfa_inputs_to_openfisca(self, inputs, period):
+    def convert_cerfa_to_openfisca(self, inputs, period=2014):
         """
             :param inputs: CERFA cases as a dictionary
             :param period: year on which the simulation is done
