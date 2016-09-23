@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import cma
 import math
@@ -18,7 +20,7 @@ class Excalibur():
         Population is given
     """
 
-    def __init__(self, population, target_variable, taxable_variable, simulator=None, echantillon=1):
+    def __init__(self, population, target_variable, taxable_variable, simulator=None, echantillon=None):
         self._population = population[:]
         self._simulator = simulator
         self._target = target_variable
@@ -52,6 +54,7 @@ class Excalibur():
 
         for var in self._index_to_variable:
             self._all_coefs.append(var_total[var] / var_occurences[var])
+
 
     def find_all_possible_inputs(self, input_variable):
         possible_values = set()
@@ -153,19 +156,22 @@ class Excalibur():
 
     def objective_function(self, coefs):
         error = 0
+        error2 = 0
         total_saving = 0
 
         for person in self._population:
             this_saving = person[self._target] - self.simulated_target(person, coefs)
             total_saving += this_saving
             error += abs(this_saving)
+            error += this_saving * this_saving
 
         if total_saving / self._echantillon < self._save:
-            error += error
+            error *= 2
 
         if random.random() > 0.99:
-            print 'Average error per person = ' + repr(int(error/len(self._population))) + ' saving ' + repr(int(total_saving/(self._echantillon * 1000000))) + ' millions'
-        return error
+            print 'Average error per person = ' + repr(int(error/len(self._population))) + ' saving '\
+                  + repr(int(total_saving/(self._echantillon * 1000000))) + ' millions'
+        return error * error
 
     def find_useful_parameters(self, results, threshold=100):
         """
@@ -178,31 +184,78 @@ class Excalibur():
                 new_parameters.append(self._index_to_variable[i])
                 optimal_values.append(results[i])
             else:
-                print 'Parameter ' + self._index_to_variable[i] + ' was dropped because it accounts to less than ' + str(threshold) + ' euros'
+                print 'Parameter ' + self._index_to_variable[i] + ' was dropped because it accounts to less than '\
+                      + str(threshold) + ' euros'
         return new_parameters, optimal_values
 
-    def suggest_reform(self, direct_parameters, segmentation_parameters=[], save=0, verbose=False):
+    def suggest_reform(self, boolean_parameters, linear_parameters=None, barem_parameters=None, save=0,
+                       verbose=False):
+        """
+            Find parameters of a reform
+
+        :param boolean_parameters: have 0 or 1 value (parameter not present is considered 0)
+        :param linear_parameters: the result will be proportional to these parameters
+        :param segmentation_parameters: these parameters will be segmented into different cases
+        :param save: how much money we would like to save in total
+        :param verbose:
+        :return: The reform for every element of the population
+        """
+        if not linear_parameters:
+            linear_parameters = []
+        if not barem_parameters:
+            barem_parameters = []
+
+        direct_parameters = boolean_parameters + linear_parameters
+
         self._save = save
+
+        if save != 0 and self._echantillon == None:
+            print 'You want to decrease spending but you did not define echantillon. We cannot do that.'
+            print 'For instance, if your population is made of unemployed people that represent 1% of the total' \
+                  'unemployed people, you should define echantillon = 0.01 in the constructor of Excalibur.'
+            assert self._echantillon != None
 
         print 'Population size = ' + repr(len(self._population))
 
         if verbose:
             cma.CMAOptions('verb')
 
-        new_parameters = self.add_segments(direct_parameters, segmentation_parameters)
+        new_parameters = self.add_segments(direct_parameters,  barem_parameters)
         self.init_parameters(new_parameters)
 
         res = cma.fmin(self.objective_function, self._all_coefs, 10000.0, options={'maxfevals': 3e3})
 
-        print '\n\n\n Modeling as the sum of: \n'
+        print '\n\n\n Reform proposed: \n'
 
         for i in range(0, len(self._index_to_variable)):
-            print self._index_to_variable[i] + ' x ' + str(int(res[0][i]))
+            if self.is_boolean(self._index_to_variable[i]):
+                print '+ ' + str(int(res[0][i])) + '€ \t if ' + self._index_to_variable[i]
+            else:
+                print '+ ' + str(int(res[0][i])) + '€ x ' + self._index_to_variable[i]
 
-        return res
+        return self.apply_reform_on_population(self._population, res[0])
 
-    def compare_population_to_results(self, population, results):
+    def is_boolean(self, variable):
+        """
+            Defines if a variable only has boolean values
+
+        :param variable: The name of the variable of interest
+        :return: True if all values are 0 or 1, False otherwise
+        """
+        for person in self._population:
+            if variable in person and person[variable] not in [0, 1]:
+                return False
+        return True
+
+    def apply_reform_on_population(self, population, coefficients):
+        """
+            Computes the reform for all the population
+
+        :param population:
+        :param coefficients:
+        :return:
+        """
         simulated_results = []
         for i in range(0, len(population)):
-            simulated_results.append(self.simulated_target(population[i], results))
+            simulated_results.append(self.simulated_target(population[i], coefficients))
         return simulated_results

@@ -313,7 +313,6 @@ class CerfaPopulationSimulator():
         else:
             cerfa['1AJ'] = int(self.simulate_one_gaussian(mu=21589, sigma=12606, th=0.612))
 
-
         return cerfa
 
     # This is a gradient desent to find the optimal parameters
