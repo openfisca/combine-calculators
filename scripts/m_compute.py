@@ -76,11 +76,6 @@ with open('../light_ast/inputs_light.json', 'r') as f:
 with open('../light_ast/unknowns_light.json', 'r') as f:
     unknowns_light = json.load(f)
 
-with open('../light_ast/input_variables.json', 'r') as f:
-    input_variables = json.load(f)
-
-alias2name = {i['alias']: i['name'] for i in input_variables}
-
 def get_value(name, input_values, computed_values):
     if name in formulas_light:
         return computed_values[name]
@@ -95,20 +90,6 @@ def get_value(name, input_values, computed_values):
         return 0.
 
     raise Exception('Unknown variable category.')
-
-
-def prepare(alias_values):
-    alias2name['year'] = 'year'
-    input_values = {alias2name[alias]: value for alias, value in alias_values.items()}
-
-    input_values_complete = {}
-    for name in inputs_light:
-        if (name in input_values):
-            input_values_complete[name] = input_values[name]
-        else:
-            input_values_complete[name] = 0.
-
-    return input_values_complete
 
 
 def compute_formula(node, input_values, computed_values, debug_variable=None, depth=0):
@@ -145,7 +126,7 @@ def compute_formula(node, input_values, computed_values, debug_variable=None, de
     raise ValueError('Unknown type : %s'%nodetype)
 
 
-def compute(input_values):
+def m_compute(input_values):
     computed_values = {}
 
     for variable in computing_order:
@@ -154,10 +135,4 @@ def compute(input_values):
 
     important_vars = ['NBPT', 'REVKIRE', 'BCSG', 'BCSG', 'BRDS', 'IBM23', 'TXMOYIMP', 'NAPTIR', 'IINET', 'RRRBG', 'RNI', 'IDRS3', 'IAVIM', 'IRN']
     return {var: computed_values[var] for var in formulas_light}
-
-
-def m_compute_from_aliases(alias_values):
-    input_values = prepare(alias_values)
-    return compute(input_values)
-
 
