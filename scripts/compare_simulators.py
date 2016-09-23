@@ -103,6 +103,7 @@ class OpenfiscaSimulator(TaxbenefitSimulator):
         taux_moyen_imposition = float(simulation.calculate('taux_moyen_imposition', '2014')[0]) * 100
         tot_impot = float(simulation.calculate('tot_impot', '2014')[0])
         print 'Irpp openfisca = ' + repr(irpp)
+        print 'Revdisp openfisca = ' + repr(revdisp)
         return {'irpp': irpp, 'credits_impot': credits_impot, 'salaire_imposable': salaire_imposable,
                 'taux_moyen_imposition': taux_moyen_imposition, 'tot_impot': tot_impot, 'revdisp': revdisp}
 

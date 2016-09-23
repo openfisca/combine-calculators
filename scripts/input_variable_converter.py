@@ -67,6 +67,48 @@ import json
 class MissingFieldException(Exception):
     pass
 
+class CerfaOnlineComparator():
+    """
+        This class enables to convert inputs from CERFA to inputs for M
+    """
+    def __init__(self, verbose=True):
+        self._verbose = verbose
+
+    def convert_cerfa_to_online(self, inputs, period=2014):
+        assert (period == 2014)
+        new_inputs = dict(inputs)
+
+        if 'year' in new_inputs:
+            assert (new_inputs['year'] == 2014)
+            del new_inputs['year']
+
+        if 'M' in new_inputs:
+            new_inputs['pre_situation_famille'] = 'M'
+            del new_inputs['M']
+        elif 'D' in new_inputs:
+            new_inputs['pre_situation_famille'] = 'D'
+            del new_inputs['D']
+        elif 'O' in new_inputs:
+            new_inputs['pre_situation_famille'] = 'O'
+            del new_inputs['O']
+        elif 'C' in new_inputs:
+            new_inputs['pre_situation_famille'] = 'C'
+            del new_inputs['C']
+        elif 'V' in new_inputs:
+            new_inputs['pre_situation_famille'] = 'V'
+            del new_inputs['V']
+        else:
+            assert False, 'No situation was filled, it should have either M, D, O, C, V set to 1'
+
+        if 'F' in new_inputs:
+            new_inputs['0CF'] = new_inputs['F']
+            del new_inputs['F']
+
+        new_inputs['pre_situation_residence'] = 'M'
+        new_inputs['simplifie']= '1'
+        return new_inputs
+
+
 class CerfaMConverter():
     """
         This class enables to convert inputs from CERFA to inputs for M
@@ -89,16 +131,25 @@ class CerfaMConverter():
 
         if 'M' in new_inputs:
             new_inputs['0AM'] = new_inputs['M']
+            del new_inputs['M']
         elif 'D' in new_inputs:
             new_inputs['0AD'] = new_inputs['D']
+            del new_inputs['D']
         elif 'O' in new_inputs:
             new_inputs['0AO'] = new_inputs['O']
+            del new_inputs['O']
         elif 'C' in new_inputs:
             new_inputs['0AC'] = new_inputs['C']
+            del new_inputs['C']
         elif 'V' in new_inputs:
             new_inputs['0AV'] = new_inputs['V']
+            del new_inputs['V']
         else:
             assert False, 'No situation was filled, it should have either M, D, O, C, V set to 1'
+
+        if 'F' in new_inputs:
+            new_inputs['0CF'] = new_inputs['F']
+            del new_inputs['F']
 
         input_values = {self._alias2name[alias]: value for alias, value in new_inputs.items()}
 
@@ -158,6 +209,21 @@ class CerfaOpenFiscaConverter():
             if self._verbose:
                 print 'INFO: converting birthdate from "' + str(inputs[cerfa]) + '" to "' + person_output['date_naissance'] + '"'
 
+    def get_statut_marital(self, inputs):
+        # u"Marié"
+        # u"Célibataire"
+        # u"Divorcé"
+        # u"Veuf"
+        # u"Pacsé"
+        if 'M' in inputs and inputs['M'] == 1:
+            return 1
+        if 'V' in inputs and inputs['V'] == 1:
+            return 4
+        if 'D' in inputs and inputs['D'] == 1:
+            return 3
+        if 'O' in inputs and inputs['O'] == 1:
+            return 5
+        return 2
 
     def convert_cerfa_to_openfisca(self, inputs, period=2014):
         """
@@ -214,11 +280,13 @@ class CerfaOpenFiscaConverter():
         # Parent1
         parent1 = self.make_person(inputs, cerfa_to_column_name, 0)
         if len(parent1.keys()) > 0:
+            parent1['statut_marital'] = self.get_statut_marital(inputs)
             openfisca_inputs['parent1'] = parent1
 
         # Parent2
         parent2 = self.make_person(inputs, cerfa_to_column_name, 1)
         if len(parent2.keys()) > 0:
+            parent2['statut_marital'] = self.get_statut_marital(inputs)
             openfisca_inputs['parent2'] = parent2
 
         # Enfants
@@ -226,7 +294,12 @@ class CerfaOpenFiscaConverter():
         for i in range(0, 9):
             enfant = self.make_person(inputs, cerfa_to_column_name, i + 2)
             if len(enfant.keys()) > 0:
+                enfant['date_naissance'] = '2010-1-1'
                 enfants.append(enfant)
+
+        while 'F' in inputs and len(enfants) < inputs['F']:
+            enfants.append({'date_naissance': '2010-1-1'})
+
         if len(enfants) > 0:
             openfisca_inputs['enfants'] = enfants
 
