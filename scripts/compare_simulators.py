@@ -323,6 +323,10 @@ class CalculatorComparator():
         with open('../results/' + filename, 'r') as f:
             return json.load(f)
 
+    def load_openfisca_from_json(self, filename):
+        self.results_openfisca = self.load_from_json(filename + '-openfisca.json')
+        self.testcases = self.load_from_json(filename + '-testcases.json')
+
     def load_results_from_json(self, filename):
         self.results_openfisca = self.load_from_json(filename + '-openfisca.json')
         self.results_m = self.load_from_json(filename + '-m.json')
