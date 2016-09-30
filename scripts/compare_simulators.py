@@ -439,11 +439,11 @@ class CalculatorComparator():
 def main():
     global parser
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--tests', default='10', type=int, help='The number of tests')
-    parser.add_argument('--ir', default=False, type=bool, help='If we only compute the impot sur le revenu')
+    parser.add_argument('--tests', default='10', type=int, help='The number of "declaration of revenu" to simulate')
+    parser.add_argument('--ir', default=False, type=bool, help='If we only compute the "impot sur le revenu"')
     parser.add_argument('--save', default=None, type=str, help='Saves the result in a json file')
-    parser.add_argument('--load', default=None, type=str, help='Loads from a json file')
-    parser.add_argument('--linear', default=False, type=bool, help='If we generate from a linear distribution instead of gaussian')
+    parser.add_argument('--load', default=None, type=str, help='Loads test results from a json file')
+    parser.add_argument('--linear', default=False, type=bool, help='If we generate from a linear distribution instead of a gaussian one.')
 
     args = parser.parse_args()
 

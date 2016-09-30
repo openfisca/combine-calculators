@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import cma
-import random
-import json
-import pydotplus
-
 from sklearn import tree
+import numpy as np
+
+
+import json
+import subprocess
+import os
+import random
 
 class EchantillonNotDefinedException(Exception):
     pass
-
 
 class Excalibur():
     """
@@ -310,7 +312,13 @@ class Excalibur():
     def person_to_input_vector(self, person):
         return list(person.get(var, 0) for var in self._index_to_variable)
 
-    def suggest_reform_tree(self, parameters, max_cost=0, min_saving=0, verbose=False, max_depth=2):
+    def suggest_reform_tree(self, parameters,
+                            max_cost=0,
+                            min_saving=0,
+                            verbose=False,
+                            max_depth=3,
+                            image_file=None,
+                            min_samples_leaf=2):
         self._max_cost = max_cost
         self._min_saving = min_saving
 
@@ -320,14 +328,28 @@ class Excalibur():
         self.init_parameters(parameters)
 
         X = self.population_to_input_vector(self._population)
-        y = map(lambda x: x[self._target_variable], self._population)
+        y = map(lambda x: int(x[self._target_variable]), self._population)
 
-        clf = tree.DecisionTreeRegressor(max_depth=max_depth)
+        clf = tree.DecisionTreeRegressor(max_depth=max_depth,
+                                         min_samples_leaf=min_samples_leaf)
         clf = clf.fit(X, y)
 
         simulated_results, error, cost = self.apply_reform_on_population(self._population, decision_tree=clf)
 
-
+        if image_file is not None:
+            with open( image_file + ".dot", 'w') as f:
+                f = tree.export_graphviz(clf,
+                                         out_file=f,
+                                         feature_names=self._index_to_variable,
+                                         filled=True,
+                                         impurity=True,
+                                         proportion=True,
+                                         rounded=True,
+                                         rotate=True
+                                         )
+            os.system('dot -Tpng ' + image_file + '.dot -o ' + image_file + '.png')
+            # 'dot -Tpng enfants_age.dot -o enfants_age.png')
+                             # ')
 
         # dot_data = tree.export_graphviz(clf)
         #
