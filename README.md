@@ -1,7 +1,7 @@
 # combine-calculators
 
-Experimental! Use OpenFisca with other calculators, compare results, merge their formulas
-Scripts files and notebooks are in scripts/
+Experimental! Use OpenFisca with other calculators, compare results, merge their formulas. The 
+scripts files and notebooks are in scripts/
 
 # Running calculators against each other
 
