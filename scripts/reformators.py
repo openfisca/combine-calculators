@@ -208,11 +208,15 @@ class Excalibur():
 
     def simulated_target(self, person, coefs):
         simulated_target = 0
+
         for var in person:
             if var in self._parameters:
                 idx = self._var_to_index[var]
                 # Adding linear constant
                 simulated_target += coefs[idx] * person[var]
+            elif var in self._tax_threshold_parameters:
+                pass
+
         return simulated_target
 
     def compute_cost_error(self, simulated, person):

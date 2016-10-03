@@ -442,6 +442,7 @@ def main():
     parser.add_argument('--tests', default='10', type=int, help='The number of "declaration of revenu" to simulate')
     parser.add_argument('--ir', default=False, type=bool, help='If we only compute the "impot sur le revenu"')
     parser.add_argument('--save', default=None, type=str, help='Saves the result in a json file')
+    parser.add_argument('--simplifym', default=None, type=str, help='When saving M results, only saves parameters that are also keys in Online')
     parser.add_argument('--load', default=None, type=str, help='Loads test results from a json file')
     parser.add_argument('--linear', default=False, type=bool, help='If we generate from a linear distribution instead of a gaussian one.')
 
@@ -449,8 +450,11 @@ def main():
 
     comparator = CalculatorComparator()
     test_cases = CerfaPopulationSimulator().generate_test_cases(args.tests, linear=args.linear)
-    comparator.compute_correlations_openfisca_m_online(test_cases, only_impot=args.ir, save=args.save, load=args.load)
-
+    comparator.compute_correlations_openfisca_m_online(test_cases,
+                                                       only_impot=args.ir,
+                                                       save=args.save,
+                                                       load=args.load,
+                                                       simplifym=args.simplifym)
     return 0
 
 
