@@ -53,7 +53,7 @@ Within a few minutes, we got a tax reform for "aides sociales" for people with n
 For now, we only cover about 10 most commun CERFA inputs, including situation, children, salary.
 Adding more CERFA inputs will make the comparator more powerful and reliable. 
 
-1) start adding the CERFA input with its distribution in population_simulator.py 
+1. start adding the CERFA input with its distribution in population_simulator.py 
 
 If you do not know the exact distribution, we wrote a function to get an approximation from the values provided in: http://www2.impots.gouv.fr/documentation/statistiques/2042_nat/2015/revenus_2014_6e_ano.pdf
 
@@ -62,12 +62,12 @@ b) run:
 python population_simulator.py --filled=value_filled --total=total_amount
 c) it will give you the parameters that you can put in in the function "generate_random_cerfa" of "population_simulator.py"
 
-2) CERFA inputs get converted automatically to OpenFisca, M, and Online
+2. CERFA inputs get converted automatically to OpenFisca, M, and Online
 
 If the "alias" of the CERFA input is filled in OpenFisca, all conversion to M, OpenFisca and Online should be automatic.
 When the alias is not filled in, you might need to update input_variable_converter.py.
 
-3) Run calculators against each other (cf above)
+3. Run calculators against each other (cf above)
 
-4) Vizualize results (cf above)
+4. Vizualize results (cf above)
   
