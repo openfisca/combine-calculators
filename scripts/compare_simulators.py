@@ -14,6 +14,7 @@
     For each test, the simulator outputs the results of its variables that it wants to automatically match
 """
 
+import os
 from lxml import etree
 from input_variable_converter import CerfaOpenFiscaConverter
 from input_variable_converter import CerfaMConverter
@@ -34,6 +35,10 @@ ERROR_MARGIN = 0.001
 NB_TESTS = 20
 PRINTING_THRESHOLD = 0.9
 PRINTING_MAX_LINES = 30
+
+script_dir = os.path.realpath(os.path.dirname(__file__))
+results_dir = os.path.join(script_dir, '..', 'results')
+m_dir = os.path.join(script_dir, '..', 'm')
 
 """
     Example results of 3 simulations
@@ -115,7 +120,7 @@ class MDescriptions():
     def __init__(self):
         self._variable_to_descriptions = {}
         # TODO: auto update m source
-        with open('../m/tgvH.m', 'r') as f:
+        with open(os.path.join(m_dir, 'tgvH.m'), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 # Corrects double space in the m file
@@ -316,11 +321,11 @@ class CalculatorComparator():
         return summed_results
 
     def save_as_json(self, name, objectname):
-        with open('../results/' + name, "w") as outfile:
+        with open(os.path.join(results_dir, name), "w") as outfile:
             json.dump(objectname, outfile)
 
     def load_from_json(self, filename):
-        with open('../results/' + filename, 'r') as f:
+        with open(os.path.join(results_dir, filename), 'r') as f:
             return json.load(f)
 
     def load_openfisca_from_json(self, filename):
