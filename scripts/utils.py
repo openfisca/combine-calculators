@@ -22,7 +22,7 @@ def percent_diff(a, b):
 
 def scatter_plot(x, y, legx, legy, alpha=1):
     fig = plt.figure()
-    ax1 = fig.add_axes((0.5,0.5,1,1))
+    ax1 = fig.add_axes((0.5, 0.5, 1, 1))
     ax1.set_xlabel(legx)
     ax1.set_ylabel(legy)
     ax1.scatter(

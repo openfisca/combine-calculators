@@ -10,6 +10,7 @@ import json
 import subprocess
 import os
 import random
+import math
 
 class EchantillonNotDefinedException(Exception):
     pass
@@ -65,13 +66,17 @@ class Excalibur():
     def is_optimized_variable(self, var):
         return var != self._taxable_variable and var != self._target_variable
 
-    def init_parameters(self, parameters):
+    def init_parameters(self, parameters, tax_rate_parameters=[], tax_threshold_parameters=[]):
         print repr(parameters)
         var_total = {}
         var_occurences = {}
         self._index_to_variable = []
         self._all_coefs = []
         self._var_to_index = {}
+        self._var_tax_rate_to_index = {}
+        self._var_tax_threshold_to_index = {}
+        self._tax_rate_parameters = []
+        self._tax_threshold_parameters = []
         self._parameters = set(parameters)
         index = 0
         for person in self._population:
@@ -89,6 +94,17 @@ class Excalibur():
         for var in self._index_to_variable:
             self._all_coefs.append(var_total[var] / var_occurences[var])
 
+        for var in tax_rate_parameters:
+            self._all_coefs.append(0)
+            self._var_tax_rate_to_index[var] = index
+            self._tax_rate_parameters.append(var)
+            index += 1
+
+        for var in tax_threshold_parameters:
+            self._all_coefs.append(5000)
+            self._var_tax_threshold_to_index[var] = index
+            self._tax_threshold_parameters.append(var)
+            index += 1
 
     def find_all_possible_inputs(self, input_variable):
         possible_values = set()
@@ -208,15 +224,26 @@ class Excalibur():
 
     def simulated_target(self, person, coefs):
         simulated_target = 0
-
+        threshold = 0
+        tax_rate = 0
         for var in person:
             if var in self._parameters:
                 idx = self._var_to_index[var]
+
                 # Adding linear constant
                 simulated_target += coefs[idx] * person[var]
-            elif var in self._tax_threshold_parameters:
-                pass
+            if var in self._tax_threshold_parameters:
+                idx = self._var_tax_threshold_to_index[var]
 
+                # determining the threshold from which we pay the tax
+                threshold += coefs[idx] * person[var]
+            if var in self._tax_rate_parameters:
+                idx = self._var_tax_rate_to_index[var]
+
+                # determining the tax_rate, divided by 100 to help the algorithm converge faster
+                tax_rate += coefs[idx] * person[var] / 100
+
+        simulated_target += person[self._taxable_variable] - (person[self._taxable_variable] - threshold / 10) * tax_rate
         return simulated_target
 
     def compute_cost_error(self, simulated, person):
@@ -241,16 +268,16 @@ class Excalibur():
             error2 *= 2
             error += len(self._population) * 1000
 
-        if -self.normalize_on_population(total_cost)  < self._min_saving:
+        if -self.normalize_on_population(total_cost) < self._min_saving:
             error *= 2
             error2 *= 2
             error += len(self._population) * 1000
 
         if random.random() > 0.99:
-            print 'Best solution: average change / person / month = ' + repr(int(error /( 12 * len(self._population))))\
+            print 'Best solution: average change / person / month = ' + repr(int(error /(12 * len(self._population))))\
                   + ' costing a total of ' \
                   + repr(int(self.normalize_on_population(total_cost) / 1000000)) + ' millions per year'
-        return error
+        return math.sqrt(error2)
 
     def find_useful_parameters(self, results, threshold=100):
         """
@@ -267,7 +294,7 @@ class Excalibur():
                       + str(threshold) + ' euros'
         return new_parameters, optimal_values
 
-    def suggest_reform(self, parameters, max_cost=0, min_saving=0, verbose=False):
+    def suggest_reform(self, parameters, max_cost=0, min_saving=0, verbose=False, tax_rate_parameters=[], tax_threshold_parameters=[]):
         """
             Find parameters of a reform
 
@@ -286,21 +313,40 @@ class Excalibur():
         if verbose:
             cma.CMAOptions('verb')
 
-        self.init_parameters(parameters)
+        self.init_parameters(parameters,
+                             tax_rate_parameters=tax_rate_parameters,
+                             tax_threshold_parameters=tax_threshold_parameters)
 
         # new_parameters = self.add_segments(direct_parameters,  barem_parameters)
         # self.init_parameters(new_parameters)
 
-        res = cma.fmin(self.objective_function, self._all_coefs, 10000.0, options={'maxfevals': 3e3})
+        res = cma.fmin(self.objective_function, self._all_coefs, 10000.0, options={'maxfevals': 5e3})
 
         # print '\n\n\n Reform proposed: \n'
         #
         final_parameters = []
 
-        for i in range(0, len(self._index_to_variable)):
-            final_parameters.append({'variable' : self._index_to_variable[i],
-                                     'value': int(res[0][i]),
-                                     'boolean': self.is_boolean(self._index_to_variable[i])})
+        i = 0
+        while i < len(self._index_to_variable):
+            final_parameters.append({'variable': self._index_to_variable[i],
+                                     'value': res[0][i],
+                                     'type': 'base_revenu'})
+            i += 1
+
+        offset = len(self._index_to_variable)
+
+        while i < offset + len(self._tax_rate_parameters):
+            final_parameters.append({'variable': self._tax_rate_parameters[i-offset],
+                                     'value': res[0][i],
+                                     'type': 'tax_rate'})
+            i += 1
+
+        offset = len(self._index_to_variable) + len(self._tax_rate_parameters)
+        while i < offset + len(self._tax_threshold_parameters):
+            final_parameters.append({'variable': self._tax_threshold_parameters[i-offset],
+                                     'value': res[0][i],
+                                     'type': 'tax_threshold'})
+            i += 1
 
         simulated_results, error, cost = self.apply_reform_on_population(self._population, coefficients=res[0])
         return simulated_results, error, cost, final_parameters
