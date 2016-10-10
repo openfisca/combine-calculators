@@ -81,7 +81,6 @@ class OpenfiscaSimulator(TaxbenefitSimulator):
         assert len(matches) in (0, 1), (alias, matches)
         return matches[0] if matches else None
 
-
     def find_cerfa_conversions(self):
         for alias in simple_input_variables_with_range:
             column = self.find_column_by_alias(alias)
