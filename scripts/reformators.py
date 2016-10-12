@@ -11,6 +11,14 @@ import subprocess
 import os
 import random
 import math
+from enum import Enum
+
+
+def sign(number):
+    """Will return 1 for positive,
+    -1 for negative, and 0 for 0"""
+    try:return number/abs(number)
+    except ZeroDivisionError:return 0
 
 class EchantillonNotDefinedException(Exception):
     pass
@@ -28,11 +36,17 @@ class Excalibur():
         Population is given
     """
 
-    def __init__(self,  target_variable, taxable_variable):
+    class Color(Enum):
+            red = 1
+            green = 2
+            blue = 3
+
+    def __init__(self,  target_variable, taxable_variable, price_of_no_regression=0):
         self._target_variable = target_variable
         self._taxable_variable = taxable_variable
         self._max_cost = 0
         self._population = None
+        self._price_of_no_regression = price_of_no_regression
 
     def filter_only_likely_population(self):
         """
@@ -251,32 +265,51 @@ class Excalibur():
         error = abs(cost)
         return cost, error
 
+    def pissed_off_bricks(self, person, simulated):
+        # TODO: clean this
+        target_variation = (simulated - person[self._target_variable]) / (person[self._target_variable] + 0.01)
+        if target_variation < 0:
+            return -target_variation
+        else:
+            return 0
+
     def objective_function(self, coefs):
         error = 0
         error2 = 0
         total_cost = 0
+        pissed_off_people = 0
+
+        nb_people = len(self._population)
 
         for person in self._population:
-            simulated =self.simulated_target(person, coefs)
+            simulated = self.simulated_target(person, coefs)
             this_cost, this_error = self.compute_cost_error(simulated, person)
             total_cost += this_cost
             error += this_error
-            error2 += this_error * this_error
+            error2 += error * error
+            pissed_off_people += self.pissed_off_bricks(person, simulated)
 
-        if self.normalize_on_population(total_cost) > self._max_cost:
-            error *= 2
-            error2 *= 2
-            error += len(self._population) * 1000
-
-        if -self.normalize_on_population(total_cost) < self._min_saving:
-            error *= 2
-            error2 *= 2
-            error += len(self._population) * 1000
+        percentage_pissed_off = float(pissed_off_people) / float(nb_people)
 
         if random.random() > 0.99:
-            print 'Best solution: average change / person / month = ' + repr(int(error /(12 * len(self._population))))\
-                  + ' costing a total of ' \
-                  + repr(int(self.normalize_on_population(total_cost) / 1000000)) + ' millions per year'
+            print 'Best: avg change per month: ' + repr(int(error / (12 * len(self._population))))\
+                  + ' cost: ' \
+                  + repr(int(self.normalize_on_population(total_cost) / 1000000))\
+                  + ' M/year and '\
+                  + repr(int(1000 * percentage_pissed_off)/10) + '% people pissed ( -5% salary )'
+
+        cost_of_overbudget = 100000
+        cost_of_pissed_of_people = 10000000
+
+        if self.normalize_on_population(total_cost) > self._max_cost:
+            error2 += pow(cost_of_overbudget, 2) * self.normalize_on_population(total_cost)
+
+        if -self.normalize_on_population(total_cost) < self._min_saving:
+            error2 += pow(cost_of_overbudget, 2) * self.normalize_on_population(total_cost)
+
+        if percentage_pissed_off > (1 - self._percent_not_pissed_off):
+            error2 += pissed_off_people * pow(cost_of_pissed_of_people, 2)
+
         return math.sqrt(error2)
 
     def find_useful_parameters(self, results, threshold=100):
@@ -294,7 +327,7 @@ class Excalibur():
                       + str(threshold) + ' euros'
         return new_parameters, optimal_values
 
-    def suggest_reform(self, parameters, max_cost=0, min_saving=0, verbose=False, tax_rate_parameters=[], tax_threshold_parameters=[]):
+    def suggest_reform(self, parameters, max_cost=0, min_saving=0, verbose=False, tax_rate_parameters=[], tax_threshold_parameters=[], percent_not_pissed_off=0):
         """
             Find parameters of a reform
 
@@ -304,6 +337,7 @@ class Excalibur():
         :return: The reform for every element of the population
         """
 
+        self._percent_not_pissed_off = percent_not_pissed_off
         self._max_cost = max_cost
         self._min_saving = min_saving
 
@@ -362,7 +396,8 @@ class Excalibur():
     def person_to_input_vector(self, person):
         return list(person.get(var, 0) for var in self._index_to_variable)
 
-    def suggest_reform_tree(self, parameters,
+    def suggest_reform_tree(self,
+                            parameters,
                             max_cost=0,
                             min_saving=0,
                             verbose=False,
