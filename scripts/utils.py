@@ -3,7 +3,7 @@ import numpy as np
 
 
 def show_histogram(variable, legend=''):
-    hist, bins = np.histogram(variable, bins=20)
+    hist, bins = np.histogram(variable, bins=35)
     width = 0.7 * (bins[1] - bins[0])
     center = (bins[:-1] + bins[1:]) / 2
     plt.bar(center,
