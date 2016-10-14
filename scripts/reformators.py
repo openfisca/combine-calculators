@@ -4,8 +4,6 @@
 import cma
 from sklearn import tree
 import numpy as np
-
-
 import json
 import subprocess
 import os
@@ -20,12 +18,13 @@ def sign(number):
     try:return number/abs(number)
     except ZeroDivisionError:return 0
 
+
 class EchantillonNotDefinedException(Exception):
     pass
 
+
 class Excalibur():
-    """
-        Excalibur is a powerful tool to model, simplify and reform a legislation.
+    """Excalibur is a powerful tool to model, simplify and reform a legislation.
 
         It takes as input a population with data (e.g., salaries/taxes/subsidies)
 
@@ -35,11 +34,6 @@ class Excalibur():
 
         Population is given
     """
-
-    class Color(Enum):
-            red = 1
-            green = 2
-            blue = 3
 
     def __init__(self,  target_variable, taxable_variable, price_of_no_regression=0):
         self._target_variable = target_variable
@@ -263,15 +257,13 @@ class Excalibur():
     def compute_cost_error(self, simulated, person):
         cost = simulated - person[self._target_variable]
         error = abs(cost)
-        return cost, error
+        error_util = error / (person[self._target_variable] + 1)
 
-    def pissed_off_bricks(self, person, simulated):
-        # TODO: clean this
-        target_variation = (simulated - person[self._target_variable]) / (person[self._target_variable] + 0.01)
-        if target_variation < 0:
-            return -target_variation
+        if cost < 0:
+            pissed = 1
         else:
-            return 0
+            pissed = 0
+        return cost, error, error_util, pissed
 
     def objective_function(self, coefs):
         error = 0
@@ -283,32 +275,28 @@ class Excalibur():
 
         for person in self._population:
             simulated = self.simulated_target(person, coefs)
-            this_cost, this_error = self.compute_cost_error(simulated, person)
+            this_cost, this_error, this_error_util, this_pissed = self.compute_cost_error(simulated, person)
             total_cost += this_cost
             error += this_error
-            error2 += error * error
-            pissed_off_people += self.pissed_off_bricks(person, simulated)
+            error2 += this_error_util * this_error_util
+            pissed_off_people += this_pissed
 
         percentage_pissed_off = float(pissed_off_people) / float(nb_people)
 
-        if random.random() > 0.99:
+        if random.random() > 0.98:
             print 'Best: avg change per month: ' + repr(int(error / (12 * len(self._population))))\
                   + ' cost: ' \
                   + repr(int(self.normalize_on_population(total_cost) / 1000000))\
                   + ' M/year and '\
-                  + repr(int(1000 * percentage_pissed_off)/10) + '% people pissed ( -5% salary )'
+                  + repr(int(1000 * percentage_pissed_off)/10) + '% people with lower salary'
 
         cost_of_overbudget = 100000
-        cost_of_pissed_of_people = 10000000
 
         if self.normalize_on_population(total_cost) > self._max_cost:
             error2 += pow(cost_of_overbudget, 2) * self.normalize_on_population(total_cost)
 
         if -self.normalize_on_population(total_cost) < self._min_saving:
             error2 += pow(cost_of_overbudget, 2) * self.normalize_on_population(total_cost)
-
-        if percentage_pissed_off > (1 - self._percent_not_pissed_off):
-            error2 += pissed_off_people * pow(cost_of_pissed_of_people, 2)
 
         return math.sqrt(error2)
 
@@ -382,8 +370,8 @@ class Excalibur():
                                      'type': 'tax_threshold'})
             i += 1
 
-        simulated_results, error, cost = self.apply_reform_on_population(self._population, coefficients=res[0])
-        return simulated_results, error, cost, final_parameters
+        simulated_results, error, cost, pissed = self.apply_reform_on_population(self._population, coefficients=res[0])
+        return simulated_results, error, cost, final_parameters, pissed
 
 
     def population_to_input_vector(self, population):
@@ -419,7 +407,7 @@ class Excalibur():
                                          min_samples_leaf=min_samples_leaf)
         clf = clf.fit(X, y)
 
-        simulated_results, error, cost = self.apply_reform_on_population(self._population, decision_tree=clf)
+        simulated_results, error, cost, pissed = self.apply_reform_on_population(self._population, decision_tree=clf)
 
         if image_file is not None:
             with open( image_file + ".dot", 'w') as f:
@@ -472,19 +460,21 @@ class Excalibur():
         simulated_results = []
         total_error = 0
         total_cost = 0
+        pissed = 0
         for i in range(0, len(population)):
             if decision_tree:
                 simulated_result = float(decision_tree.predict(self.person_to_input_vector(population[i]))[0])
             elif coefficients is not None:
                 simulated_result = self.simulated_target(population[i], coefficients)
             simulated_results.append(simulated_result)
-            this_cost, this_error = self.compute_cost_error(simulated_result, population[i])
+            this_cost, this_error, this_error_util, this_pissed = self.compute_cost_error(simulated_result, population[i])
             total_cost += this_cost
             total_error += this_error
+            pissed += this_pissed
 
         total_cost = self.normalize_on_population(total_cost)
 
-        return simulated_results, total_error / len(population), total_cost
+        return simulated_results, total_error / len(population), total_cost, pissed / float(len(population))
 
     def add_concept(self, concept, function):
         if self._population is None:
@@ -511,7 +501,7 @@ class Excalibur():
 
         # We assume that there are 2000000 people with RSA
         # TODO Put that where it belongs in the constructor
-        self._echantillon =  float(total_people) / 2000000
+        self._echantillon =  float(total_people) / 30000000
         print 'Echantillon of ' + repr(total_people) + ' people, in percent of french population for similar revenu: ' + repr(100 * self._echantillon) + '%'
 
 
